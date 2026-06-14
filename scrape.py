@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""
+Palinsesto film TV - scraper.
+Fonte palinsesto: guidatv.org (HTML statico, 1 fetch per canale = giornata intera).
+Arricchimento trama completa: TMDB (opzionale, via TMDB_API_KEY).
+Output: data/palinsesto.json
+"""
+import json, os, re, time, sys, urllib.parse, urllib.request, urllib.error
+from datetime import datetime, timezone, timedelta
+from bs4 import BeautifulSoup
+
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+BASE = "https://guidatv.org/canali/{slug}"
+TMDB_KEY = os.environ.get("TMDB_API_KEY", "").strip()
+ROME = timezone(timedelta(hours=2))  # CEST; il sito e' IT, l'offset preciso non e' critico per la data
+
+# (etichetta UI, gruppo, slug guidatv.org)
+CHANNELS = [
+    # --- SKY CINEMA / film ---
+    ("Sky Cinema Uno", "sky", "sky-cinema-uno-hd"),
+    ("Sky Cinema Due", "sky", "sky-cinema-due-hd"),
+    ("Sky Cinema Collection", "sky", "sky-cinema-collection-hd"),
+    ("Sky Cinema Action", "sky", "sky-cinema-action-hd"),
+    ("Sky Cinema Comedy", "sky", "sky-cinema-comedy-hd"),
+    ("Sky Cinema Drama", "sky", "sky-cinema-drama-hd"),
+    ("Sky Cinema Romance", "sky", "sky-cinema-romance-hd"),
+    ("Sky Cinema Suspense", "sky", "sky-cinema-suspense-hd"),
+    ("Sky Cinema Family", "sky", "sky-cinema-family-hd"),
+    ("Sky Investigation", "sky", "sky-investigation-hd"),
+    ("Sky Crime", "sky", "sky-crime"),
+    # --- TV IN CHIARO ---
+    ("Rai 1", "chiaro", "rai-1"),
+    ("Rai 2", "chiaro", "rai-2"),
+    ("Rai 3", "chiaro", "rai-3"),
+    ("Rai 4", "chiaro", "rai-4"),
+    ("Rai 5", "chiaro", "rai-5"),
+    ("Rai Movie", "chiaro", "rai-movie"),
+    ("Rai Premium", "chiaro", "rai-premium"),
+    ("Rai Gulp", "chiaro", "rai-gulp"),
+    ("Rai YoYo", "chiaro", "rai-yoyo"),
+    ("Rete 4", "chiaro", "rete4"),
+    ("Canale 5", "chiaro", "canale-5"),
+    ("Italia 1", "chiaro", "italia-uno"),
+    ("Italia 2", "chiaro", "mediaset-italia-due"),
+    ("La7", "chiaro", "la7"),
+    ("La7 Cinema", "chiaro", "la7-cinema"),
+    ("TV8", "chiaro", "tv8"),
+    ("Nove", "chiaro", "nove"),
+    ("Iris", "chiaro", "iris"),
+    ("Cielo", "chiaro", "cielo"),
+    ("20 Mediaset", "chiaro", "canale-20"),
+    ("TwentySeven", "chiaro", "mediaset-27"),
+    ("Cine34", "chiaro", "cine-34"),
+    ("La5", "chiaro", "la-5"),
+    ("Top Crime", "chiaro", "topcrime"),
+    ("Focus", "chiaro", "focus"),
+    ("Giallo", "chiaro", "giallo"),
+    ("Real Time", "chiaro", "real-time"),
+    ("Mediaset Extra", "chiaro", "mediaset-extra"),
+    ("TV2000", "chiaro", "tv2000"),
+    ("Boing", "chiaro", "boing"),
+    ("Cartoonito", "chiaro", "cartoonito"),
+    ("Frisbee", "chiaro", "frisbee"),
+    ("K2", "chiaro", "k2"),
+]
+
+GENRE_LABELS = {"Film","Serie TV","Serie","Telefilm","Programma","Documentario","Show",
+                "Cartoni","Sport","Notiziario","Rubrica","Soap Opera","Film TV","Miniserie",
+                "Talk Show","Intrattenimento","Reality","Musica","Cartoni Animati","Fiction"}
+
+def fetch(url, tries=3):
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            return urllib.request.urlopen(req, timeout=25).read().decode("utf-8", "ignore")
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            time.sleep(1.5 * (i + 1))
+        except Exception:
+            time.sleep(1.5 * (i + 1))
+    return None
+
+def parse_duration(s):
+    if not s: return None
+    h = re.search(r'(\d+)\s*ore', s); m = re.search(r'(\d+)\s*min', s)
+    tot = (int(h.group(1))*60 if h else 0) + (int(m.group(1)) if m else 0)
+    return tot or None
+
+def poster_from_img(img):
+    if not img: return None
+    src = img.get("srcSet") or img.get("srcset") or img.get("src") or ""
+    m = re.search(r'url=(https%3A[^&\s]+)', src)
+    if m:
+        return urllib.parse.unquote(m.group(1))
+    m2 = re.search(r'(https?://[^\s"]+\.jpg)', src)
+    return m2.group(1) if m2 else None
+
+def parse_channel(html):
+    soup = BeautifulSoup(html, "lxml")
+    cards = soup.select('[data-testid="channel-program-card"]')
+    # gli orari stanno in h3.hour, nello stesso ordine delle card
+    hours = [x.get_text(strip=True) for x in soup.select('h3.hour')]
+    progs = []
+    for i, card in enumerate(cards):
+        texts = [t.strip() for t in card.stripped_strings if t.strip()]
+        if not texts:
+            continue
+        title = texts[0]
+        year  = next((t for t in texts if re.fullmatch(r'(19|20)\d{2}', t)), None)
+        durtxt= next((t for t in texts if re.search(r'\bore\b|\bmin\b', t)), None)
+        genre = next((t for t in texts if t in GENRE_LABELS), None)
+        rating= next((t for t in texts if re.fullmatch(r'\d\.\d', t)), None)
+        plot  = next((t for t in texts if len(t) > 40), None)
+        hour  = hours[i] if i < len(hours) else None
+        progs.append({
+            "time": hour,
+            "title": title,
+            "year": int(year) if year else None,
+            "duration_min": parse_duration(durtxt),
+            "genre": genre,
+            "rating": float(rating) if rating else None,
+            "plot_short": plot,
+            "plot": plot,                       # default = breve; TMDB lo sovrascrive
+            "poster": poster_from_img(card.find("img")),
+        })
+    return progs
+
+# ---------- TMDB enrichment ----------
+_tmdb_cache = {}
+def tmdb_plot(title, year):
+    if not TMDB_KEY:
+        return None
+    key = (title, year)
+    if key in _tmdb_cache:
+        return _tmdb_cache[key]
+    q = urllib.parse.quote(title)
+    url = (f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_KEY}"
+           f"&language=it-IT&query={q}" + (f"&year={year}" if year else ""))
+    out = None
+    try:
+        data = json.loads(fetch(url) or "{}")
+        results = data.get("results", [])
+        if results:
+            ov = results[0].get("overview") or ""
+            out = ov.strip() or None
+    except Exception:
+        out = None
+    _tmdb_cache[key] = out
+    return out
+
+def main():
+    today = datetime.now(ROME).date().isoformat()
+    out = {"updated_at": datetime.now(ROME).isoformat(timespec="seconds"),
+           "date": today, "source": "guidatv.org",
+           "tmdb_enriched": bool(TMDB_KEY), "channels": []}
+    ok = miss = 0
+    for label, group, slug in CHANNELS:
+        html = fetch(BASE.format(slug=slug))
+        if not html:
+            print(f"  SKIP {label} ({slug}) - no html", file=sys.stderr)
+            miss += 1
+            continue
+        progs = parse_channel(html)
+        # arricchimento TMDB solo per i Film (le serie hanno trame per-episodio, fuori scope)
+        for p in progs:
+            if p["genre"] == "Film" and p["title"]:
+                full = tmdb_plot(p["title"], p["year"])
+                if full:
+                    p["plot"] = full
+                time.sleep(0.05)  # gentile con l'API
+        out["channels"].append({"name": label, "group": group, "slug": slug,
+                                 "programs": progs})
+        ok += 1
+        print(f"  OK {label}: {len(progs)} programmi", file=sys.stderr)
+        time.sleep(0.4)  # gentile con guidatv.org
+    os.makedirs("data", exist_ok=True)
+    with open("data/palinsesto.json", "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"\nFatto: {ok} canali ok, {miss} mancanti -> data/palinsesto.json", file=sys.stderr)
+
+if __name__ == "__main__":
+    main()
