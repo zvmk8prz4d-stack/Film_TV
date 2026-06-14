@@ -6,24 +6,17 @@
 <meta name="theme-color" content="#0a0a0c">
 <title>In Sala — Film stasera in TV</title>
 <style>
-  /* ---------- design tokens ----------
-     Concept: la "pellicola" non è una texture di sfondo decorativa ma la struttura
-     stessa dell'app. Bordo perforato a sinistra come una striscia di 35mm, schede
-     film come fotogrammi, accento ambrato da proiettore. */
   :root{
-    --bg:#0a0a0c;            /* nero camera oscura */
-    --panel:#141417;        /* grigio celluloide */
+    --bg:#0a0a0c;
+    --panel:#141417;
     --panel-2:#1c1c21;
     --edge:#2a2a30;
-    --ink:#f3efe6;          /* bianco proiezione, caldo */
+    --ink:#f3efe6;
     --ink-dim:#9a958a;
-    --amber:#e8a33d;        /* fascio proiettore */
-    --amber-soft:#3a2c14;
-    --sky:#5fb0e6;          /* badge Sky */
-    --chiaro:#7bd88f;       /* badge chiaro */
-    --perf:#000;            /* fori pellicola */
+    --amber:#e8a33d;
+    --sky:#5fb0e6;
+    --chiaro:#7bd88f;
     --radius:14px;
-    --film-strip:30px;      /* larghezza banda perforata */
     font-synthesis:none;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -34,65 +27,23 @@
     padding-bottom:env(safe-area-inset-bottom);
     line-height:1.45;
   }
-  @media (prefers-reduced-motion:no-preference){
-    *{scroll-behavior:smooth}
-  }
 
-  /* ---------- striscia pellicola laterale fissa (35mm) ---------- */
-  .film-rail{
-    position:fixed;top:0;bottom:0;left:0;width:var(--film-strip);
-    /* nastro celluloide: leggero gradiente verticale per dare materia */
-    background:linear-gradient(90deg,#050505,#101012 60%,#050505);
-    z-index:30;
-    border-right:1px solid var(--edge);
-    overflow:hidden;
-  }
-  /* due colonne di perforazioni reali (fori chiari arrotondati con ombra interna) */
-  .film-rail .perfs{position:absolute;top:0;bottom:0;left:0;right:0}
-  .film-rail .perfs::before,
-  .film-rail .perfs::after{
-    content:"";position:absolute;top:-26px;bottom:-26px;width:8px;
-    background:repeating-linear-gradient(to bottom,
-      transparent 0 11px,
-      #d8d4c8 11px 24px,           /* foro */
-      transparent 24px 35px);
-    border-radius:3px;
-    /* leggera ombra sul foro per profondità */
-    filter:drop-shadow(0 1px 0 rgba(0,0,0,.6));
-    opacity:.55;
-  }
-  .film-rail .perfs::before{left:6px}
-  .film-rail .perfs::after{right:6px}
-  /* fascia centrale = area immagine del fotogramma, appena più chiara */
-  .film-rail::after{
-    content:"";position:absolute;top:0;bottom:0;left:50%;width:42%;
-    transform:translateX(-50%);
-    background:linear-gradient(180deg,rgba(232,163,61,.05),transparent 40%,rgba(95,176,230,.04));
-    border-left:1px solid rgba(255,255,255,.04);border-right:1px solid rgba(255,255,255,.04);
-  }
-  @media (prefers-reduced-motion:no-preference){
-    .film-rail .perfs{animation:roll 6s linear infinite}
-  }
-  @keyframes roll{from{transform:translateY(0)}to{transform:translateY(-35px)}}
-
-  .wrap{margin-left:var(--film-strip);max-width:760px}
+  .wrap{max-width:760px;margin:0 auto}
 
   /* ---------- header ---------- */
   header{
     position:sticky;top:0;z-index:20;
-    background:linear-gradient(180deg,rgba(10,10,12,.97),rgba(10,10,12,.86));
+    background:linear-gradient(180deg,rgba(10,10,12,.97),rgba(10,10,12,.88));
     backdrop-filter:blur(8px);
     border-bottom:1px solid var(--edge);
-    padding:14px 16px 10px;
+    padding:13px 16px 11px;
   }
-  .brand{display:flex;align-items:baseline;gap:10px}
-  .brand h1{
-    font-size:23px;font-weight:800;letter-spacing:-.5px;
-    text-transform:uppercase;
-  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .filmicon{flex:0 0 auto;width:30px;height:30px;color:var(--amber)}
+  .brand h1{font-size:22px;font-weight:800;letter-spacing:-.5px;text-transform:uppercase}
   .brand h1 .on{color:var(--amber)}
   .brand .meta{font-size:11px;color:var(--ink-dim);margin-left:auto;text-align:right;line-height:1.3}
-  .tagline{font-size:11.5px;color:var(--ink-dim);margin-top:2px;letter-spacing:.3px}
+  .tagline{font-size:11.5px;color:var(--ink-dim);margin-top:3px;letter-spacing:.3px}
 
   /* search */
   .search{margin-top:11px;position:relative}
@@ -101,20 +52,27 @@
     color:var(--ink);border-radius:10px;padding:10px 12px 10px 34px;font-size:15px;
   }
   .search input::placeholder{color:var(--ink-dim)}
-  .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.5}
+  .search .sicon{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.5}
 
-  /* filtri */
-  .filters{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-  .chips{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
-  .chips::-webkit-scrollbar{display:none}
-  .chip{
-    flex:0 0 auto;background:var(--panel);border:1px solid var(--edge);
-    color:var(--ink-dim);border-radius:999px;padding:6px 13px;font-size:13px;
-    white-space:nowrap;cursor:pointer;transition:.15s;
+  /* riga filtri compatta: fonte (chip) + due tendine */
+  .controls{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
+  .seg{display:flex;background:var(--panel);border:1px solid var(--edge);border-radius:9px;overflow:hidden}
+  .seg button{
+    background:transparent;border:0;color:var(--ink-dim);
+    padding:8px 12px;font-size:13px;cursor:pointer;white-space:nowrap;
   }
-  .chip[aria-pressed="true"]{background:var(--amber);color:#1a1205;border-color:var(--amber);font-weight:700}
-  .chip.src-sky[aria-pressed="true"]{background:var(--sky);border-color:var(--sky);color:#04121c}
-  .chip.src-chiaro[aria-pressed="true"]{background:var(--chiaro);border-color:var(--chiaro);color:#04140a}
+  .seg button[aria-pressed="true"]{background:var(--amber);color:#1a1205;font-weight:700}
+  .seg button.sky[aria-pressed="true"]{background:var(--sky);color:#04121c}
+  .seg button.chiaro[aria-pressed="true"]{background:var(--chiaro);color:#04140a}
+
+  select{
+    flex:1 1 auto;min-width:120px;
+    background:var(--panel);border:1px solid var(--edge);color:var(--ink);
+    border-radius:9px;padding:8px 30px 8px 11px;font-size:13px;cursor:pointer;
+    -webkit-appearance:none;appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a958a' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 10px center;
+  }
 
   /* ---------- lista ---------- */
   main{padding:14px 14px 40px}
@@ -123,23 +81,18 @@
   .film{
     display:grid;grid-template-columns:78px 1fr;gap:12px;
     background:var(--panel);border:1px solid var(--edge);border-radius:var(--radius);
-    padding:10px;margin-bottom:11px;position:relative;overflow:hidden;
+    padding:11px;margin-bottom:11px;position:relative;overflow:hidden;
+    cursor:pointer;transition:border-color .15s;
   }
-  /* mini perforazioni sul bordo sinistro della scheda = fotogramma */
-  .film::before{
-    content:"";position:absolute;left:0;top:0;bottom:0;width:9px;
-    background:repeating-linear-gradient(to bottom,
-      #0c0c0e 0 7px,#2a2a30 7px 12px,#0c0c0e 12px 19px);
-    border-right:1px solid var(--edge);
-  }
+  .film:hover{border-color:#3a3a42}
   .film .poster{
     width:78px;height:116px;border-radius:8px;object-fit:cover;background:var(--panel-2);
-    margin-left:6px;border:1px solid var(--edge);
+    border:1px solid var(--edge);
   }
   .film .poster.ph{display:flex;align-items:center;justify-content:center;color:var(--edge);font-size:26px}
   .film .body{min-width:0}
-  .film h3{font-size:16px;font-weight:700;line-height:1.25;letter-spacing:-.2px}
-  .film .sub{font-size:12px;color:var(--ink-dim);margin-top:3px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .film h3{font-size:16px;font-weight:700;line-height:1.25;letter-spacing:-.2px;margin-top:2px}
+  .film .sub{font-size:12px;color:var(--ink-dim);margin-top:4px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .film .sub.head{flex-wrap:nowrap;margin-top:0;overflow:hidden}
   .film .sub.head .chan{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .dot{width:3px;height:3px;border-radius:50%;background:var(--ink-dim);display:inline-block}
@@ -149,55 +102,57 @@
   .time{font-weight:800;color:var(--amber);font-size:15px;font-variant-numeric:tabular-nums}
   .chan{font-size:12px;color:var(--ink);font-weight:600}
   .rating{font-size:12px;color:var(--amber)}
-  .plot{font-size:13px;color:#cfc9bd;margin-top:7px;
+  .plot{font-size:13px;color:#cfc9bd;margin-top:8px;
     display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
   .film.open .plot{-webkit-line-clamp:unset}
-  .more{font-size:11.5px;color:var(--amber);margin-top:5px;cursor:pointer;display:inline-block;font-weight:600}
+  .more{font-size:11.5px;color:var(--amber);margin-top:6px;display:inline-block;font-weight:600}
 
   .empty{text-align:center;color:var(--ink-dim);padding:60px 20px;font-size:14px}
   .empty strong{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
 
-  footer{margin-left:var(--film-strip);text-align:center;font-size:10.5px;color:var(--ink-dim);
-    padding:18px;border-top:1px solid var(--edge)}
-
-  /* time-of-day group headers */
   .daypart{
     font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
     color:var(--amber);margin:18px 4px 9px;display:flex;align-items:center;gap:10px}
   .daypart::after{content:"";flex:1;height:1px;background:var(--edge)}
 
-  @media (max-width:380px){:root{--film-strip:24px}}
+  footer{text-align:center;font-size:10.5px;color:var(--ink-dim);padding:18px;border-top:1px solid var(--edge);max-width:760px;margin:0 auto}
 </style>
 </head>
 <body>
-  <div class="film-rail" aria-hidden="true"><div class="perfs"></div></div>
-
   <div class="wrap">
     <header>
       <div class="brand">
+        <!-- icona pellicola accanto al titolo -->
+        <svg class="filmicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+          <rect x="2.5" y="3.5" width="19" height="17" rx="2.5"/>
+          <line x1="7" y1="3.5" x2="7" y2="20.5"/>
+          <line x1="17" y1="3.5" x2="17" y2="20.5"/>
+          <line x1="2.5" y1="9" x2="7" y2="9"/><line x1="2.5" y1="15" x2="7" y2="15"/>
+          <line x1="17" y1="9" x2="21.5" y2="9"/><line x1="17" y1="15" x2="21.5" y2="15"/>
+        </svg>
         <h1>In&nbsp;Sala<span class="on">.</span></h1>
         <div class="meta" id="meta">—</div>
       </div>
       <div class="tagline">Tutti i film stasera in TV — Sky e chiaro</div>
 
       <div class="search">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         <input id="q" type="search" placeholder="Cerca titolo o trama…" autocomplete="off">
       </div>
 
-      <div class="filters">
-        <div class="chips" id="srcChips">
-          <button class="chip" data-src="all" aria-pressed="true">Tutte le fonti</button>
-          <button class="chip src-sky" data-src="sky" aria-pressed="false">Sky</button>
-          <button class="chip src-chiaro" data-src="chiaro" aria-pressed="false">TV in chiaro</button>
+      <div class="controls">
+        <div class="seg" id="srcSeg">
+          <button data-src="all" aria-pressed="true">Tutte</button>
+          <button class="sky" data-src="sky" aria-pressed="false">Sky</button>
+          <button class="chiaro" data-src="chiaro" aria-pressed="false">Chiaro</button>
         </div>
-        <div class="chips" id="timeChips">
-          <button class="chip" data-time="all" aria-pressed="true">Tutto il giorno</button>
-          <button class="chip" data-time="prime" aria-pressed="false">Prima serata</button>
-          <button class="chip" data-time="late" aria-pressed="false">Seconda serata</button>
-          <button class="chip" data-time="day" aria-pressed="false">Mattina/Pomeriggio</button>
-        </div>
-        <div class="chips" id="genreChips"><!-- popolato da JS --></div>
+        <select id="timeSel" aria-label="Fascia oraria">
+          <option value="all">Tutto il giorno</option>
+          <option value="prime">Prima serata</option>
+          <option value="late">Seconda serata</option>
+          <option value="day">Mattina / Pomeriggio</option>
+        </select>
+        <select id="genreSel" aria-label="Genere"><!-- popolato da JS --></select>
       </div>
     </header>
 
@@ -214,11 +169,10 @@ const state = { src:"all", time:"all", genre:"Film", q:"" };
 let DB = null;
 
 const toMin = t => { if(!t) return null; const m=t.match(/(\d{1,2}):(\d{2})/); if(!m) return null;
-  let h=+m[1]; const min=+m[2]; return h*60+min; };
-// classifica fascia: prima serata 20:30-22:59, seconda 23:00-01:59, giorno il resto
+  return (+m[1])*60 + (+m[2]); };
 function daypart(t){ const m=toMin(t); if(m==null) return "day";
-  if(m>=1230 && m<1380) return "prime";           // 20:30–22:59
-  if(m>=1380 || m<120)  return "late";             // 23:00–01:59
+  if(m>=1230 && m<1380) return "prime";
+  if(m>=1380 || m<120)  return "late";
   return "day"; }
 const DAYPART_LABEL = {prime:"Prima serata",late:"Seconda serata",day:"Mattina · Pomeriggio"};
 const DAYPART_ORDER = ["prime","late","day"];
@@ -233,45 +187,37 @@ async function load(){
       '<span style="color:#e87a7a">Palinsesto non disponibile.</span> Riprova più tardi.';
     return;
   }
-  // meta
   const dt = new Date(DB.updated_at);
   const dataStr = new Date(DB.date+"T12:00:00").toLocaleDateString("it-IT",
     {weekday:"long",day:"numeric",month:"long"});
   document.getElementById("meta").innerHTML =
     dataStr+"<br>agg. "+dt.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});
   document.getElementById("foot").innerHTML =
-    "Fonte palinsesti: guidatv.org"+(DB.tmdb_enriched?" · trame complete: TMDB":"")+
+    "Fonte palinsesti: guidatv.org"+(DB.tmdb_enriched?" · trame: TMDB":"")+
     " · aggiornamento automatico giornaliero";
-  buildGenreChips();
+  buildGenreOptions();
   render();
 }
 
 function allPrograms(){
   const out=[];
-  for(const ch of DB.channels){
-    for(const p of ch.programs){
+  for(const ch of DB.channels)
+    for(const p of ch.programs)
       out.push({...p, channel:ch.name, group:ch.group});
-    }
-  }
   return out;
 }
 
-function buildGenreChips(){
+function buildGenreOptions(){
   const counts={};
   for(const p of allPrograms()) if(p.genre) counts[p.genre]=(counts[p.genre]||0)+1;
-  // ordina per frequenza, Film sempre primo
   const genres=Object.keys(counts).sort((a,b)=> (b==="Film")-(a==="Film") || counts[b]-counts[a]);
-  const box=document.getElementById("genreChips");
-  box.innerHTML =
-    '<button class="chip" data-genre="all" aria-pressed="false">Tutti i generi</button>'+
-    genres.map(g=>`<button class="chip" data-genre="${g}" aria-pressed="${g===state.genre}">${g} <span style="opacity:.6">${counts[g]}</span></button>`).join("");
-  box.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
-    state.genre=c.dataset.genre; syncChips(box,"genre"); render();
-  }));
-}
-
-function syncChips(box,key){
-  box.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed", String(c.dataset[key]===state[key])));
+  const sel=document.getElementById("genreSel");
+  sel.innerHTML =
+    genres.map(g=>`<option value="${g}">${g} (${counts[g]})</option>`).join("")+
+    '<option value="all">Tutti i generi</option>';
+  // default: Film se esiste
+  state.genre = genres.includes("Film") ? "Film" : (genres[0]||"all");
+  sel.value = state.genre;
 }
 
 function passes(p){
@@ -289,7 +235,6 @@ function passes(p){
 function render(){
   const list=document.getElementById("list");
   let items=allPrograms().filter(passes);
-  // ordina per fascia poi orario
   items.sort((a,b)=>{
     const da=DAYPART_ORDER.indexOf(daypart(a.time)), db=DAYPART_ORDER.indexOf(daypart(b.time));
     if(da!==db) return da-db;
@@ -299,7 +244,7 @@ function render(){
     items.length+" "+(items.length===1?"risultato":"risultati");
 
   if(!items.length){
-    list.innerHTML='<div class="empty"><strong>Nessun film trovato</strong>Prova a cambiare fonte, fascia oraria o genere.</div>';
+    list.innerHTML='<div class="empty"><strong>Niente da mostrare</strong>Cambia fonte, fascia oraria o genere.</div>';
     return;
   }
   let html="", lastPart=null;
@@ -316,9 +261,10 @@ function render(){
     const dur = p.duration_min?`<span>${Math.floor(p.duration_min/60)}h ${p.duration_min%60}m</span><span class="dot"></span>`:"";
     const rt = p.rating?`<span class="rating">★ ${p.rating.toFixed(1)}</span>`:"";
     const plot=(p.plot||"").trim();
-    const plotHtml = plot?`<div class="plot">${esc(plot)}</div>`+
-      (plot.length>140?`<span class="more">Leggi tutto</span>`:""):"";
-    html+=`<article class="film">
+    const plotHtml = plot
+      ? `<div class="plot">${esc(plot)}</div>`+(plot.length>140?`<span class="more">Leggi tutto</span>`:"")
+      : "";
+    html+=`<article class="film" tabindex="0">
       ${poster}
       <div class="body">
         <div class="sub head"><span class="time">${p.time||"--:--"}</span>${badge}<span class="chan">${esc(p.channel)}</span></div>
@@ -329,23 +275,29 @@ function render(){
     </article>`;
   }
   list.innerHTML=html;
-  list.querySelectorAll(".more").forEach(m=>m.addEventListener("click",e=>{
-    const f=e.target.closest(".film"); f.classList.toggle("open");
-    e.target.textContent=f.classList.contains("open")?"Mostra meno":"Leggi tutto";
-  }));
+
+  // tutta la card è cliccabile: espande/comprime la trama
+  list.querySelectorAll(".film").forEach(card=>{
+    const more=card.querySelector(".more");
+    const toggle=()=>{
+      const open=card.classList.toggle("open");
+      if(more) more.textContent = open ? "Mostra meno" : "Leggi tutto";
+    };
+    card.addEventListener("click",toggle);
+    card.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle();} });
+  });
 }
 
 const esc=s=>(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-// listeners filtri fonte/orario
-document.getElementById("srcChips").addEventListener("click",e=>{
-  const c=e.target.closest(".chip"); if(!c)return; state.src=c.dataset.src;
-  syncChips(e.currentTarget,"src"); render();
+document.getElementById("srcSeg").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  state.src=b.dataset.src;
+  e.currentTarget.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.src===state.src)));
+  render();
 });
-document.getElementById("timeChips").addEventListener("click",e=>{
-  const c=e.target.closest(".chip"); if(!c)return; state.time=c.dataset.time;
-  syncChips(e.currentTarget,"time"); render();
-});
+document.getElementById("timeSel").addEventListener("change",e=>{ state.time=e.target.value; render(); });
+document.getElementById("genreSel").addEventListener("change",e=>{ state.genre=e.target.value; render(); });
 let qt; document.getElementById("q").addEventListener("input",e=>{
   clearTimeout(qt); qt=setTimeout(()=>{state.q=e.target.value.trim(); render();},180);
 });
