@@ -102,6 +102,14 @@
   .badge.chiaro{background:rgba(123,216,143,.15);color:var(--chiaro)}
   .time{font-weight:800;color:var(--amber);font-size:15px;font-variant-numeric:tabular-nums}
   .chan{font-size:12px;color:var(--ink);font-weight:600}
+  .lcn{font-size:11px;font-weight:800;color:var(--ink-dim);background:var(--panel-2);
+    border:1px solid var(--edge);border-radius:5px;padding:1px 6px;font-variant-numeric:tabular-nums}
+  .cast{font-size:12px;color:var(--ink-dim);margin-top:6px;font-style:italic}
+  .trailer{display:inline-block;margin-top:9px;font-size:12.5px;font-weight:700;
+    color:#ff5252;text-decoration:none;border:1px solid rgba(255,82,82,.4);
+    border-radius:7px;padding:4px 10px}
+  .trailer:hover{background:rgba(255,82,82,.12)}
+  .partial{font-size:11px;color:var(--ink-dim);margin-top:5px;display:inline-block;font-style:italic;opacity:.8}
   .rating{font-size:12px;color:var(--amber)}
   .plot{font-size:13px;color:#cfc9bd;margin-top:8px;
     display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
@@ -203,7 +211,7 @@ function allPrograms(){
   const out=[];
   for(const ch of DB.channels)
     for(const p of ch.programs)
-      out.push({...p, channel:ch.name, group:ch.group});
+      out.push({...p, channel:ch.name, group:ch.group, lcn:ch.lcn});
   return out;
 }
 
@@ -289,17 +297,30 @@ function render(){
     const rt = p.rating?`<span class="rating">★ ${p.rating.toFixed(1)}</span>`:"";
     const gtxt = (p.genres&&p.genres.length)?p.genres.slice(0,2).join(", "):"";
     const gen = gtxt?`<span>${esc(gtxt)}</span>`:"";
+    const lcn = p.lcn?`<span class="lcn">${p.lcn}</span>`:"";
+    // attori principali (max 3 mostrati)
+    const cast = (p.cast&&p.cast.length)
+      ? `<div class="cast">Con ${esc(p.cast.slice(0,3).join(", "))}</div>` : "";
+    // trailer YouTube
+    const trailer = p.trailer
+      ? `<a class="trailer" href="${esc(p.trailer)}" target="_blank" rel="noopener">▶ Trailer</a>` : "";
+    // trama: distinguo completa (TMDB) da breve troncata (guidatv.org, finisce con …)
     const plot=(p.plot||"").trim();
+    const isPartial = /[.…]{1,3}$/.test(plot) && plot.length<140 && !(p.genres&&p.genres.length);
     const plotHtml = plot
-      ? `<div class="plot">${esc(plot)}</div>`+(plot.length>140?`<span class="more">Leggi tutto</span>`:"")
+      ? `<div class="plot">${esc(plot)}</div>`+
+        (plot.length>140?`<span class="more">Leggi tutto</span>`
+         : isPartial?`<span class="partial">Trama completa non disponibile</span>`:"")
       : "";
     html+=`<article class="film" tabindex="0">
       ${poster}
       <div class="body">
-        <div class="sub head"><span class="time">${p.time||"--:--"}</span>${badge}<span class="chan">${esc(p.channel)}</span></div>
+        <div class="sub head"><span class="time">${p.time||"--:--"}</span>${badge}${lcn}<span class="chan">${esc(p.channel)}</span></div>
         <h3>${esc(p.title||"—")}</h3>
         <div class="sub">${yr}${dur}${gen}${rt?'<span class="dot"></span>'+rt:""}</div>
+        ${cast}
         ${plotHtml}
+        ${trailer}
       </div>
     </article>`;
   }
@@ -314,6 +335,10 @@ function render(){
     };
     card.addEventListener("click",toggle);
     card.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle();} });
+  });
+  // il link trailer apre YouTube senza espandere la card
+  list.querySelectorAll(".film .trailer").forEach(a=>{
+    a.addEventListener("click",e=>e.stopPropagation());
   });
 }
 
