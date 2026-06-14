@@ -181,7 +181,8 @@ def tmdb_genre_map():
 def tmdb_lookup(title, year):
     """Ritorna dict con trama completa, generi, attori principali, trailer YouTube.
     Usa 2 chiamate: search (per l'id) + details con append_to_response (credits+videos)."""
-    empty = {"plot": None, "genres": [], "cast": [], "trailer": None}
+    empty = {"plot": None, "genres": [], "cast": [], "trailer": None,
+             "director": None, "age": None}
     if not TMDB_KEY:
         return empty
     key = (title, year)
@@ -200,25 +201,40 @@ def tmdb_lookup(title, year):
             mid = r.get("id")
             res["plot"] = (r.get("overview") or "").strip() or None
             res["genres"] = [gmap.get(i) for i in r.get("genre_ids", []) if gmap.get(i)]
-            # dettagli: cast + video, una sola chiamata
             if mid:
                 det_url = (f"https://api.themoviedb.org/3/movie/{mid}?api_key={TMDB_KEY}"
-                           f"&language=it-IT&append_to_response=credits,videos")
+                           f"&language=it-IT&append_to_response=credits,videos,release_dates")
                 det = json.loads(fetch(det_url) or "{}")
-                # attori principali (primi 5 per ordine di cast)
-                cast = det.get("credits", {}).get("cast", [])
+                creds = det.get("credits", {})
+                cast = creds.get("cast", [])
                 res["cast"] = [c.get("name") for c in cast[:5] if c.get("name")]
-                # trailer YouTube: preferisci type Trailer in italiano, poi qualsiasi YT
+                # regista (può essercene più d'uno)
+                dirs = [c.get("name") for c in creds.get("crew", [])
+                        if c.get("job")=="Director" and c.get("name")]
+                if dirs:
+                    res["director"] = ", ".join(dict.fromkeys(dirs))
+                # trailer YouTube
                 vids = det.get("videos", {}).get("results", [])
                 yt = [v for v in vids if v.get("site")=="YouTube"]
                 pick = next((v for v in yt if v.get("type")=="Trailer"), None) or (yt[0] if yt else None)
                 if pick and pick.get("key"):
                     res["trailer"] = "https://www.youtube.com/watch?v="+pick["key"]
-                # se la trama IT manca, ritenta details in inglese non vale la pena: lascio breve
+                # età consigliata: cerca certificazione IT, poi US come fallback
+                res["age"] = pick_certification(det.get("release_dates", {}).get("results", []))
     except Exception:
         pass
     _tmdb_cache[key] = res
     return res
+
+def pick_certification(results):
+    """Estrae la classificazione per età: preferisce Italia, poi US."""
+    by_country = {r.get("iso_3166_1"): r.get("release_dates", []) for r in results}
+    for cc in ("IT", "US"):
+        for rd in by_country.get(cc, []):
+            cert = (rd.get("certification") or "").strip()
+            if cert:
+                return ("VM "+cert if cc=="IT" and cert.isdigit() else cert)
+    return None
 
 def main():
     today = datetime.now(ROME).date().isoformat()
@@ -236,12 +252,15 @@ def main():
         # arricchimento TMDB solo per i Film (le serie hanno trame per-episodio, fuori scope)
         for p in progs:
             p["genres"] = []; p["cast"] = []; p["trailer"] = None
+            p["director"] = None; p["age"] = None
             if p["genre"] == "Film" and p["title"]:
                 info = tmdb_lookup(p["title"], p["year"])
-                if info["plot"]:    p["plot"]    = info["plot"]
-                if info["genres"]:  p["genres"]  = info["genres"]
-                if info["cast"]:    p["cast"]    = info["cast"]
-                if info["trailer"]: p["trailer"] = info["trailer"]
+                if info["plot"]:     p["plot"]     = info["plot"]
+                if info["genres"]:   p["genres"]   = info["genres"]
+                if info["cast"]:     p["cast"]     = info["cast"]
+                if info["trailer"]:  p["trailer"]  = info["trailer"]
+                if info["director"]: p["director"] = info["director"]
+                if info["age"]:      p["age"]      = info["age"]
                 time.sleep(0.05)  # gentile con l'API
         out["channels"].append({"name": label, "group": group, "slug": slug,
                                  "lcn": LCN.get(label), "programs": progs})
