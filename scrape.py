@@ -130,6 +130,22 @@ def parse_channel(html):
 _tmdb_cache = {}
 _genre_map = None
 
+# rinomina/pulisce alcuni nomi genere TMDB poco felici in italiano
+GENRE_FIX = {
+    "televisione film": "Film TV",
+    "fantascienza": "Fantascienza",
+    "azione e avventura": "Azione e Avventura",
+}
+def clean_genre(name):
+    if not name:
+        return name
+    n = name.strip()
+    low = n.lower()
+    if low in GENRE_FIX:
+        return GENRE_FIX[low]
+    # altrimenti capitalizza la prima lettera lasciando il resto
+    return n[0].upper() + n[1:] if n else n
+
 def tmdb_genre_map():
     """Scarica una volta la lista id->nome generi (in italiano)."""
     global _genre_map
@@ -141,7 +157,7 @@ def tmdb_genre_map():
     try:
         url = f"https://api.themoviedb.org/3/genre/movie/list?api_key={TMDB_KEY}&language=it-IT"
         data = json.loads(fetch(url) or "{}")
-        _genre_map = {g["id"]: g["name"] for g in data.get("genres", [])}
+        _genre_map = {g["id"]: clean_genre(g["name"]) for g in data.get("genres", [])}
     except Exception:
         _genre_map = {}
     return _genre_map
