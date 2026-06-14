@@ -208,19 +208,42 @@ function allPrograms(){
 }
 
 function buildGenreOptions(){
-  // conta i generi fini (TMDB) sui soli Film
+  // conteggi calcolati rispettando fonte/fascia/ricerca correnti (ma NON il genere,
+  // così ogni voce mostra quanti film darebbe SE la scegliessi)
   const counts={};
   for(const p of allPrograms()){
     if(p.genre!=="Film") continue;
+    if(state.src!=="all" && p.group!==state.src) continue;
+    if(state.time!=="all" && daypart(p.time)!==state.time) continue;
+    if(state.q){
+      const q=state.q.toLowerCase();
+      const hay=((p.title||"")+" "+(p.plot||"")+" "+(p.channel||"")).toLowerCase();
+      if(!hay.includes(q)) continue;
+    }
     for(const g of (p.genres||[])) counts[g]=(counts[g]||0)+1;
+  }
+  // totale film (per la voce "Tutti i generi")
+  let totFilm=0;
+  for(const p of allPrograms()){
+    if(p.genre!=="Film") continue;
+    if(state.src!=="all" && p.group!==state.src) continue;
+    if(state.time!=="all" && daypart(p.time)!==state.time) continue;
+    if(state.q){
+      const q=state.q.toLowerCase();
+      const hay=((p.title||"")+" "+(p.plot||"")+" "+(p.channel||"")).toLowerCase();
+      if(!hay.includes(q)) continue;
+    }
+    totFilm++;
   }
   const genres=Object.keys(counts).sort((a,b)=> counts[b]-counts[a] || a.localeCompare(b));
   const sel=document.getElementById("genreSel");
+  const cur=state.genre;   // preserva la selezione corrente
   sel.innerHTML =
-    '<option value="all">Tutti i generi</option>'+
+    `<option value="all">Tutti i generi (${totFilm})</option>`+
     genres.map(g=>`<option value="${g}">${g} (${counts[g]})</option>`).join("");
-  state.genre="all";
-  sel.value="all";
+  // se il genere scelto non è più disponibile coi filtri, torna a "all"
+  if(cur!=="all" && !genres.includes(cur)){ state.genre="all"; }
+  sel.value=state.genre;
 }
 
 function passes(p){
@@ -300,12 +323,12 @@ document.getElementById("srcSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;
   state.src=b.dataset.src;
   e.currentTarget.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.src===state.src)));
-  render();
+  buildGenreOptions(); render();
 });
-document.getElementById("timeSel").addEventListener("change",e=>{ state.time=e.target.value; render(); });
+document.getElementById("timeSel").addEventListener("change",e=>{ state.time=e.target.value; buildGenreOptions(); render(); });
 document.getElementById("genreSel").addEventListener("change",e=>{ state.genre=e.target.value; render(); });
 let qt; document.getElementById("q").addEventListener("input",e=>{
-  clearTimeout(qt); qt=setTimeout(()=>{state.q=e.target.value.trim(); render();},180);
+  clearTimeout(qt); qt=setTimeout(()=>{state.q=e.target.value.trim(); buildGenreOptions(); render();},180);
 });
 
 load();
