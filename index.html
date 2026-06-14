@@ -165,7 +165,7 @@
 
 <script>
 const DATA_URL = "data/palinsesto.json";
-const state = { src:"all", time:"all", genre:"Film", q:"" };
+const state = { src:"all", time:"all", genre:"all", q:"" };
 let DB = null;
 
 const toMin = t => { if(!t) return null; const m=t.match(/(\d{1,2}):(\d{2})/); if(!m) return null;
@@ -208,21 +208,25 @@ function allPrograms(){
 }
 
 function buildGenreOptions(){
+  // conta i generi fini (TMDB) sui soli Film
   const counts={};
-  for(const p of allPrograms()) if(p.genre) counts[p.genre]=(counts[p.genre]||0)+1;
-  const genres=Object.keys(counts).sort((a,b)=> (b==="Film")-(a==="Film") || counts[b]-counts[a]);
+  for(const p of allPrograms()){
+    if(p.genre!=="Film") continue;
+    for(const g of (p.genres||[])) counts[g]=(counts[g]||0)+1;
+  }
+  const genres=Object.keys(counts).sort((a,b)=> counts[b]-counts[a] || a.localeCompare(b));
   const sel=document.getElementById("genreSel");
   sel.innerHTML =
-    genres.map(g=>`<option value="${g}">${g} (${counts[g]})</option>`).join("")+
-    '<option value="all">Tutti i generi</option>';
-  // default: Film se esiste
-  state.genre = genres.includes("Film") ? "Film" : (genres[0]||"all");
-  sel.value = state.genre;
+    '<option value="all">Tutti i generi</option>'+
+    genres.map(g=>`<option value="${g}">${g} (${counts[g]})</option>`).join("");
+  state.genre="all";
+  sel.value="all";
 }
 
 function passes(p){
+  if(p.genre!=="Film") return false;               // l'app mostra solo film
   if(state.src!=="all" && p.group!==state.src) return false;
-  if(state.genre!=="all" && p.genre!==state.genre) return false;
+  if(state.genre!=="all" && !(p.genres||[]).includes(state.genre)) return false;
   if(state.time!=="all" && daypart(p.time)!==state.time) return false;
   if(state.q){
     const q=state.q.toLowerCase();
@@ -260,6 +264,8 @@ function render(){
     const yr = p.year?`<span>${p.year}</span><span class="dot"></span>`:"";
     const dur = p.duration_min?`<span>${Math.floor(p.duration_min/60)}h ${p.duration_min%60}m</span><span class="dot"></span>`:"";
     const rt = p.rating?`<span class="rating">★ ${p.rating.toFixed(1)}</span>`:"";
+    const gtxt = (p.genres&&p.genres.length)?p.genres.slice(0,2).join(", "):"";
+    const gen = gtxt?`<span>${esc(gtxt)}</span>`:"";
     const plot=(p.plot||"").trim();
     const plotHtml = plot
       ? `<div class="plot">${esc(plot)}</div>`+(plot.length>140?`<span class="more">Leggi tutto</span>`:"")
@@ -269,7 +275,7 @@ function render(){
       <div class="body">
         <div class="sub head"><span class="time">${p.time||"--:--"}</span>${badge}<span class="chan">${esc(p.channel)}</span></div>
         <h3>${esc(p.title||"—")}</h3>
-        <div class="sub">${yr}${dur}${p.genre?`<span>${esc(p.genre)}</span>`:""}${rt?'<span class="dot"></span>'+rt:""}</div>
+        <div class="sub">${yr}${dur}${gen}${rt?'<span class="dot"></span>'+rt:""}</div>
         ${plotHtml}
       </div>
     </article>`;
