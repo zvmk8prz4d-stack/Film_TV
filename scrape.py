@@ -128,26 +128,47 @@ def parse_channel(html):
 
 # ---------- TMDB enrichment ----------
 _tmdb_cache = {}
-def tmdb_plot(title, year):
+_genre_map = None
+
+def tmdb_genre_map():
+    """Scarica una volta la lista id->nome generi (in italiano)."""
+    global _genre_map
+    if _genre_map is not None:
+        return _genre_map
+    _genre_map = {}
     if not TMDB_KEY:
-        return None
+        return _genre_map
+    try:
+        url = f"https://api.themoviedb.org/3/genre/movie/list?api_key={TMDB_KEY}&language=it-IT"
+        data = json.loads(fetch(url) or "{}")
+        _genre_map = {g["id"]: g["name"] for g in data.get("genres", [])}
+    except Exception:
+        _genre_map = {}
+    return _genre_map
+
+def tmdb_lookup(title, year):
+    """Ritorna (trama_completa, lista_generi_italiani) per un film."""
+    if not TMDB_KEY:
+        return None, []
     key = (title, year)
     if key in _tmdb_cache:
         return _tmdb_cache[key]
+    gmap = tmdb_genre_map()
     q = urllib.parse.quote(title)
     url = (f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_KEY}"
            f"&language=it-IT&query={q}" + (f"&year={year}" if year else ""))
-    out = None
+    plot, genres = None, []
     try:
         data = json.loads(fetch(url) or "{}")
         results = data.get("results", [])
         if results:
-            ov = results[0].get("overview") or ""
-            out = ov.strip() or None
+            r = results[0]
+            plot = (r.get("overview") or "").strip() or None
+            genres = [gmap.get(i) for i in r.get("genre_ids", []) if gmap.get(i)]
     except Exception:
-        out = None
-    _tmdb_cache[key] = out
-    return out
+        pass
+    _tmdb_cache[key] = (plot, genres)
+    return plot, genres
 
 def main():
     today = datetime.now(ROME).date().isoformat()
@@ -164,10 +185,13 @@ def main():
         progs = parse_channel(html)
         # arricchimento TMDB solo per i Film (le serie hanno trame per-episodio, fuori scope)
         for p in progs:
+            p["genres"] = []   # generi fini TMDB (Azione, Commedia, ...)
             if p["genre"] == "Film" and p["title"]:
-                full = tmdb_plot(p["title"], p["year"])
+                full, gs = tmdb_lookup(p["title"], p["year"])
                 if full:
                     p["plot"] = full
+                if gs:
+                    p["genres"] = gs
                 time.sleep(0.05)  # gentile con l'API
         out["channels"].append({"name": label, "group": group, "slug": slug,
                                  "programs": progs})
