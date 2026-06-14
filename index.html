@@ -105,6 +105,10 @@
   .lcn{font-size:11px;font-weight:800;color:var(--ink-dim);background:var(--panel-2);
     border:1px solid var(--edge);border-radius:5px;padding:1px 6px;font-variant-numeric:tabular-nums}
   .cast{font-size:12px;color:var(--ink-dim);margin-top:6px;font-style:italic}
+  .crew{font-size:12px;color:var(--ink-dim);margin-top:6px}
+  .crew strong{color:#cfc9bd;font-weight:600}
+  .age{font-size:10.5px;font-weight:800;color:#e8a33d;border:1px solid rgba(232,163,61,.45);
+    border-radius:5px;padding:1px 6px;letter-spacing:.3px}
   .trailer{display:inline-block;margin-top:9px;font-size:12.5px;font-weight:700;
     color:#ff5252;text-decoration:none;border:1px solid rgba(255,82,82,.4);
     border-radius:7px;padding:4px 10px}
@@ -298,13 +302,14 @@ function render(){
     const gtxt = (p.genres&&p.genres.length)?p.genres.slice(0,2).join(", "):"";
     const gen = gtxt?`<span>${esc(gtxt)}</span>`:"";
     const lcn = p.lcn?`<span class="lcn">${p.lcn}</span>`:"";
-    // attori principali (max 3 mostrati)
+    const age = p.age?`<span class="age">${esc(p.age)}</span>`:"";
+    // regista + attori
+    const dir = p.director?`<div class="crew"><strong>Regia:</strong> ${esc(p.director)}</div>`:"";
     const cast = (p.cast&&p.cast.length)
       ? `<div class="cast">Con ${esc(p.cast.slice(0,3).join(", "))}</div>` : "";
     // trailer YouTube
     const trailer = p.trailer
       ? `<a class="trailer" href="${esc(p.trailer)}" target="_blank" rel="noopener">▶ Trailer</a>` : "";
-    // trama: distinguo completa (TMDB) da breve troncata (guidatv.org, finisce con …)
     const plot=(p.plot||"").trim();
     const isPartial = /[.…]{1,3}$/.test(plot) && plot.length<140 && !(p.genres&&p.genres.length);
     const plotHtml = plot
@@ -317,8 +322,8 @@ function render(){
       <div class="body">
         <div class="sub head"><span class="time">${p.time||"--:--"}</span>${badge}${lcn}<span class="chan">${esc(p.channel)}</span></div>
         <h3>${esc(p.title||"—")}</h3>
-        <div class="sub">${yr}${dur}${gen}${rt?'<span class="dot"></span>'+rt:""}</div>
-        ${cast}
+        <div class="sub">${yr}${dur}${gen}${rt?'<span class="dot"></span>'+rt:""}${age}</div>
+        ${dir}${cast}
         ${plotHtml}
         ${trailer}
       </div>
