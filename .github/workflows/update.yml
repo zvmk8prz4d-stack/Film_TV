@@ -1,0 +1,44 @@
+name: Aggiorna palinsesto
+
+on:
+  schedule:
+    # 04:10 UTC = 06:10 ora italiana (CEST). Gira ogni giorno.
+    - cron: "10 4 * * *"
+  workflow_dispatch:        # permette anche l'avvio manuale dal tab Actions
+
+permissions:
+  contents: write
+
+concurrency:
+  group: palinsesto
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installa dipendenze
+        run: pip install -r requirements.txt
+
+      - name: Esegui scraper
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: python scrape.py
+
+      - name: Commit del palinsesto aggiornato
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/palinsesto.json
+          if git diff --staged --quiet; then
+            echo "Nessuna modifica al palinsesto."
+          else
+            git commit -m "Palinsesto $(date -u +%Y-%m-%d)"
+            git push
+          fi
