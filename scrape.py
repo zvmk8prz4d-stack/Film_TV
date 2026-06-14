@@ -64,6 +64,22 @@ CHANNELS = [
     ("K2", "chiaro", "k2"),
 ]
 
+# Numero canale (LCN). Chiaro = digitale terrestre; Sky = numerazione bouquet Sky.
+LCN = {
+    "Sky Cinema Uno":301, "Sky Cinema Due":302, "Sky Cinema Collection":303,
+    "Sky Cinema Action":305, "Sky Cinema Comedy":306, "Sky Cinema Drama":304,
+    "Sky Cinema Romance":307, "Sky Cinema Suspense":308, "Sky Cinema Family":309,
+    "Sky Investigation":114, "Sky Crime":110,
+    "Rai 1":1, "Rai 2":2, "Rai 3":3, "Rai 4":21, "Rai 5":23,
+    "Rai Movie":24, "Rai Premium":25, "Rai Gulp":42, "Rai YoYo":43,
+    "Rete 4":4, "Canale 5":5, "Italia 1":6, "Italia 2":49,
+    "La7":7, "La7 Cinema":10, "TV8":8, "Nove":9,
+    "Iris":22, "Cielo":26, "20 Mediaset":20, "TwentySeven":27, "Cine34":34,
+    "La5":30, "Top Crime":39, "Focus":35, "Giallo":38, "Real Time":31,
+    "Mediaset Extra":55, "TV2000":28, "Boing":40, "Cartoonito":46,
+    "Frisbee":44, "K2":41,
+}
+
 GENRE_LABELS = {"Film","Serie TV","Serie","Telefilm","Programma","Documentario","Show",
                 "Cartoni","Sport","Notiziario","Rubrica","Soap Opera","Film TV","Miniserie",
                 "Talk Show","Intrattenimento","Reality","Musica","Cartoni Animati","Fiction"}
@@ -163,28 +179,46 @@ def tmdb_genre_map():
     return _genre_map
 
 def tmdb_lookup(title, year):
-    """Ritorna (trama_completa, lista_generi_italiani) per un film."""
+    """Ritorna dict con trama completa, generi, attori principali, trailer YouTube.
+    Usa 2 chiamate: search (per l'id) + details con append_to_response (credits+videos)."""
+    empty = {"plot": None, "genres": [], "cast": [], "trailer": None}
     if not TMDB_KEY:
-        return None, []
+        return empty
     key = (title, year)
     if key in _tmdb_cache:
         return _tmdb_cache[key]
     gmap = tmdb_genre_map()
     q = urllib.parse.quote(title)
-    url = (f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_KEY}"
-           f"&language=it-IT&query={q}" + (f"&year={year}" if year else ""))
-    plot, genres = None, []
+    search_url = (f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_KEY}"
+                  f"&language=it-IT&query={q}" + (f"&year={year}" if year else ""))
+    res = dict(empty)
     try:
-        data = json.loads(fetch(url) or "{}")
+        data = json.loads(fetch(search_url) or "{}")
         results = data.get("results", [])
         if results:
             r = results[0]
-            plot = (r.get("overview") or "").strip() or None
-            genres = [gmap.get(i) for i in r.get("genre_ids", []) if gmap.get(i)]
+            mid = r.get("id")
+            res["plot"] = (r.get("overview") or "").strip() or None
+            res["genres"] = [gmap.get(i) for i in r.get("genre_ids", []) if gmap.get(i)]
+            # dettagli: cast + video, una sola chiamata
+            if mid:
+                det_url = (f"https://api.themoviedb.org/3/movie/{mid}?api_key={TMDB_KEY}"
+                           f"&language=it-IT&append_to_response=credits,videos")
+                det = json.loads(fetch(det_url) or "{}")
+                # attori principali (primi 5 per ordine di cast)
+                cast = det.get("credits", {}).get("cast", [])
+                res["cast"] = [c.get("name") for c in cast[:5] if c.get("name")]
+                # trailer YouTube: preferisci type Trailer in italiano, poi qualsiasi YT
+                vids = det.get("videos", {}).get("results", [])
+                yt = [v for v in vids if v.get("site")=="YouTube"]
+                pick = next((v for v in yt if v.get("type")=="Trailer"), None) or (yt[0] if yt else None)
+                if pick and pick.get("key"):
+                    res["trailer"] = "https://www.youtube.com/watch?v="+pick["key"]
+                # se la trama IT manca, ritenta details in inglese non vale la pena: lascio breve
     except Exception:
         pass
-    _tmdb_cache[key] = (plot, genres)
-    return plot, genres
+    _tmdb_cache[key] = res
+    return res
 
 def main():
     today = datetime.now(ROME).date().isoformat()
@@ -201,16 +235,16 @@ def main():
         progs = parse_channel(html)
         # arricchimento TMDB solo per i Film (le serie hanno trame per-episodio, fuori scope)
         for p in progs:
-            p["genres"] = []   # generi fini TMDB (Azione, Commedia, ...)
+            p["genres"] = []; p["cast"] = []; p["trailer"] = None
             if p["genre"] == "Film" and p["title"]:
-                full, gs = tmdb_lookup(p["title"], p["year"])
-                if full:
-                    p["plot"] = full
-                if gs:
-                    p["genres"] = gs
+                info = tmdb_lookup(p["title"], p["year"])
+                if info["plot"]:    p["plot"]    = info["plot"]
+                if info["genres"]:  p["genres"]  = info["genres"]
+                if info["cast"]:    p["cast"]    = info["cast"]
+                if info["trailer"]: p["trailer"] = info["trailer"]
                 time.sleep(0.05)  # gentile con l'API
         out["channels"].append({"name": label, "group": group, "slug": slug,
-                                 "programs": progs})
+                                 "lcn": LCN.get(label), "programs": progs})
         ok += 1
         print(f"  OK {label}: {len(progs)} programmi", file=sys.stderr)
         time.sleep(0.4)  # gentile con guidatv.org
