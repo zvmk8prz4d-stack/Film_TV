@@ -163,7 +163,8 @@
           <button class="chiaro" data-src="chiaro" aria-pressed="false">Chiaro</button>
         </div>
         <select id="timeSel" aria-label="Fascia oraria">
-          <option value="all">Tutto il giorno</option>
+          <option value="now">▶ Ora in onda</option>
+          <option value="all" selected>Tutto il giorno</option>
           <option value="prime">Prima serata</option>
           <option value="late">Seconda serata</option>
           <option value="day">Mattina / Pomeriggio</option>
@@ -189,6 +190,21 @@ function daypart(t){ const m=toMin(t); if(m==null) return "day";
   if(m>=1230 && m<1380) return "prime";
   if(m>=1380 || m<120)  return "late";
   return "day"; }
+
+// "ora in onda": il film è in corso se inizio <= adesso < inizio+durata.
+// Gli orari dopo mezzanotte (00:00-05:59) appartengono alla notte = +24h sulla timeline.
+function liveInfo(){
+  const now=new Date();
+  let mins=now.getHours()*60+now.getMinutes();
+  if(now.getHours()<6) mins+=1440;   // notte: sposta sulla timeline del palinsesto
+  return mins;
+}
+function isLiveNow(p, nowMin){
+  let s=toMin(p.time); if(s==null) return false;
+  if(s<360) s+=1440;                 // film dopo mezzanotte -> timeline notte
+  const dur=p.duration_min||120;     // se durata ignota, assume 2h
+  return s<=nowMin && nowMin < s+dur;
+}
 const DAYPART_LABEL = {prime:"Prima serata",late:"Seconda serata",day:"Mattina · Pomeriggio"};
 const DAYPART_ORDER = ["prime","late","day"];
 
@@ -226,10 +242,12 @@ function buildGenreOptions(){
   // conteggi calcolati rispettando fonte/fascia/ricerca correnti (ma NON il genere,
   // così ogni voce mostra quanti film darebbe SE la scegliessi)
   const counts={};
+  const nowMin=liveInfo();
   for(const p of allPrograms()){
     if(p.genre!=="Film") continue;
     if(state.src!=="all" && p.group!==state.src) continue;
-    if(state.time!=="all" && daypart(p.time)!==state.time) continue;
+    if(state.time==="now"){ if(!isLiveNow(p,nowMin)) continue; }
+    else if(state.time!=="all" && daypart(p.time)!==state.time) continue;
     if(state.q){
       const q=state.q.toLowerCase();
       const hay=((p.title||"")+" "+(p.plot||"")+" "+(p.channel||"")).toLowerCase();
@@ -242,7 +260,8 @@ function buildGenreOptions(){
   for(const p of allPrograms()){
     if(p.genre!=="Film") continue;
     if(state.src!=="all" && p.group!==state.src) continue;
-    if(state.time!=="all" && daypart(p.time)!==state.time) continue;
+    if(state.time==="now"){ if(!isLiveNow(p,nowMin)) continue; }
+    else if(state.time!=="all" && daypart(p.time)!==state.time) continue;
     if(state.q){
       const q=state.q.toLowerCase();
       const hay=((p.title||"")+" "+(p.plot||"")+" "+(p.channel||"")).toLowerCase();
@@ -265,7 +284,8 @@ function passes(p){
   if(p.genre!=="Film") return false;               // l'app mostra solo film
   if(state.src!=="all" && p.group!==state.src) return false;
   if(state.genre!=="all" && !(p.genres||[]).includes(state.genre)) return false;
-  if(state.time!=="all" && daypart(p.time)!==state.time) return false;
+  if(state.time==="now"){ if(!isLiveNow(p, liveInfo())) return false; }
+  else if(state.time!=="all" && daypart(p.time)!==state.time) return false;
   if(state.q){
     const q=state.q.toLowerCase();
     const hay=((p.title||"")+" "+(p.plot||"")+" "+(p.channel||"")).toLowerCase();
