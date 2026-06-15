@@ -227,13 +227,22 @@ def tmdb_lookup(title, year):
     return res
 
 def pick_certification(results):
-    """Estrae la classificazione per età: preferisce Italia, poi US."""
+    """Estrae la classificazione per età e la normalizza in formato '14+'/'Tutti'.
+    Preferisce la certificazione italiana, poi quella USA."""
+    # mappa codici -> etichetta età minima
+    IT_MAP = {"T":"Tutti", "BA":"Tutti", "VM14":"14+", "VM18":"18+", "14":"14+", "18":"18+"}
+    US_MAP = {"G":"Tutti", "PG":"Tutti", "PG-13":"13+", "R":"17+", "NC-17":"18+"}
     by_country = {r.get("iso_3166_1"): r.get("release_dates", []) for r in results}
-    for cc in ("IT", "US"):
+    for cc, m in (("IT", IT_MAP), ("US", US_MAP)):
         for rd in by_country.get(cc, []):
-            cert = (rd.get("certification") or "").strip()
-            if cert:
-                return ("VM "+cert if cc=="IT" and cert.isdigit() else cert)
+            cert = (rd.get("certification") or "").strip().upper()
+            if not cert:
+                continue
+            if cert in m:
+                return m[cert]
+            # codici IT puramente numerici tipo "14"/"18"
+            if cc=="IT" and cert.isdigit():
+                return cert+"+"
     return None
 
 def main():
