@@ -2,8 +2,9 @@ name: Aggiorna palinsesto
 
 on:
   schedule:
-    # 04:10 UTC = 06:10 ora italiana (CEST). Gira ogni giorno.
-    - cron: "10 4 * * *"
+    # 04:37 UTC = 06:37 ora italiana (CEST). Minuto "dispari" lontano dall'ora tonda
+    # per ridurre i ritardi/skip tipici dei cron GitHub Actions. Gira ogni giorno.
+    - cron: "37 4 * * *"
   workflow_dispatch:        # permette anche l'avvio manuale dal tab Actions
 
 permissions:
